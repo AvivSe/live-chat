@@ -3,7 +3,7 @@ import {Role} from "../models";
 import {IsAlphanumeric, IsEnum, Length} from "class-validator";
 
 @InputType()
-export class CreateUserDto {
+export class LoginDto {
 
     @Field(() => String)
     @IsAlphanumeric()

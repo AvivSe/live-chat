@@ -9,32 +9,30 @@ import {User} from "./User";
 export class Message extends BaseEntity {
     @Field(() => ID)
     @PrimaryGeneratedColumn("uuid")
-    id: string | undefined;
+    id: string;
 
     @Field(()=> Date)
     @CreateDateColumn()
-    date: Date | undefined;
+    date: Date;
 
+    @Field(()=> String)
     @Column()
     @Length(1, 200)
     content: string;
 
+    @Field(()=> String)
     @Column({ nullable: true })
     userId: string
 
+    @Field(()=> User, { nullable: true })
     @ManyToOne(() => User, { nullable: true })
     user: User | undefined;
 
+    @Field(()=> String)
     @Column({ nullable: true })
     conversationId: string
 
+    @Field(()=> Conversation)
     @ManyToOne(() => Conversation, conversation => conversation.messages)
     conversation: Conversation | undefined;
-
-    constructor(content: string, userId: string, conversationId: string) {
-        super();
-        this.conversationId = conversationId;
-        this.userId = userId;
-        this.content = content;
-    }
 }

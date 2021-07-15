@@ -8,25 +8,25 @@ import {User} from "./User";
 export class Conversation extends BaseEntity {
     @Field(() => ID)
     @PrimaryGeneratedColumn("uuid")
-    id: string ;
+    id: string;
 
     @Field(() => String)
-    @Column({ nullable: true })
+    @Column({nullable: true})
     customerId: string;
 
     @Field(() => User)
-    @ManyToOne(() => User, { nullable: true })
+    @ManyToOne(() => User, {nullable: true})
     customer: User;
 
-    @Field(() => String)
-    @Column({ nullable: true })
+    @Field(() => String, {nullable: true})
+    @Column({nullable: true})
     supportId: string;
 
-    @Field(() => String)
-    @ManyToOne(() => User, { nullable: true })
+    @Field(() => User, {nullable: true})
+    @ManyToOne(() => User, {nullable: true})
     support: User;
 
-    @Field(() => [Message])
+    @Field(() => [Message], {nullable: true})
     @OneToMany(() => Message, message => message.conversation)
     messages: Message[];
 
