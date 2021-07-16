@@ -12,7 +12,7 @@ import {
     gql, split, HttpLink
 } from "@apollo/client";
 
-import { WebSocketLink } from '@apollo/client/link/ws';
+import {WebSocketLink} from '@apollo/client/link/ws';
 import {getMainDefinition} from "@apollo/client/utilities";
 
 const wsLink = new WebSocketLink({
@@ -27,7 +27,7 @@ const httpLink = new HttpLink({
 });
 
 const splitLink = split(
-    ({ query }) => {
+    ({query}) => {
         const definition = getMainDefinition(query);
         return (
             definition.kind === 'OperationDefinition' &&
@@ -44,12 +44,11 @@ const client = new ApolloClient({
 });
 
 ReactDOM.render(
-    <React.StrictMode>
-        <ApolloProvider client={client}>
-            <BrowserRouter>
-                <App/>
-            </BrowserRouter>
-        </ApolloProvider>
-    </React.StrictMode>,
+    <ApolloProvider client={client}>
+        <BrowserRouter>
+            <App/>
+        </BrowserRouter>
+    </ApolloProvider>
+    ,
     document.getElementById('root')
 );

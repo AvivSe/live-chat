@@ -45,3 +45,13 @@ export const SUBSCRIBE_CONVERSATION = gql`
         }
     }
 `;
+
+export const SUBSCRIBE_NEW_CONVERSATION = gql`
+    subscription OnNewConversation ($userId: String!){
+        newConversation(userId: $userId) {
+            id,
+            customer { username, id }
+            messages { id, date, content, user { username } }
+        }
+    }
+`;

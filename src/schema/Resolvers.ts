@@ -54,7 +54,11 @@ export class Resolvers {
         const conversation = Conversation.create({customerId: user.id, messages: []});
         await conversation.save();
 
-        return await Conversation.findOneOrFail(conversation.id, {relations: ['customer', 'messages', 'messages.user']});
+        const populatedConversation = await Conversation.findOneOrFail(conversation.id, {relations: ['customer', 'messages', 'messages.user']});
+
+        await pubSub.publish(`NEW_CONVERSATION`, populatedConversation);
+
+        return populatedConversation;
     }
 
     @Mutation(() => Message)
@@ -71,8 +75,6 @@ export class Resolvers {
     @Subscription({
         subscribe: withFilter(() => pubSub.asyncIterator([`NEW_MESSAGE`]),
             (payload: Message, variables) => {
-                console.log(payload);
-                console.log(variables);
                 return payload.conversationId === variables.conversationId;
             }),
         nullable: true,
@@ -81,5 +83,16 @@ export class Resolvers {
         return message;
     }
 
+    @Subscription({
+        subscribe: withFilter(() => pubSub.asyncIterator([`NEW_CONVERSATION`]),
+            async (payload: Conversation, variables) => {
+                // TODO: ONLY ADMIN
+                return (await User.findOneOrFail(variables.userId)).role === Role.Support;
+            }),
+        nullable: true,
+    })
+    newConversation(@Root() conversation: Conversation, @Arg("userId") userId: string): Conversation {
+        return conversation;
+    }
 
 }

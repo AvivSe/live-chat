@@ -1,7 +1,7 @@
 import {useApolloClient, useQuery} from "@apollo/client";
 import styled from 'styled-components';
 import {useEffect, useState} from "react";
-import {GET_ALL_CONVERSATIONS_BY_USER_ID, SUBSCRIBE_CONVERSATION} from "../api/queries";
+import {GET_ALL_CONVERSATIONS_BY_USER_ID, SUBSCRIBE_CONVERSATION, SUBSCRIBE_NEW_CONVERSATION} from "../api/queries";
 
 const Container = styled.div`
   height: 480px;
@@ -29,35 +29,52 @@ function Conversations({user, onSelectConversation}) {
                 prev[current.id] = current;
                 return prev;
             }, {});
+
             setConversations(conversations);
+
+            const conversationObservers = [];
+            Object.keys(conversations).forEach(conversationId => {
+                const conversationObserver = client.subscribe({
+                    query: SUBSCRIBE_CONVERSATION,
+                    variables: {conversationId}
+                }).subscribe(response => {
+                    const newMessage = response.data.newMessage;
+                    conversations[newMessage.conversationId].messages = [...conversations[newMessage.conversationId].messages, newMessage];
+                    setConversations({...conversations});
+                });
+                conversationObservers.push(conversationObserver);
+            })
+
+            return function () {
+                conversationObservers.forEach(observer => observer.unsubscribe());
+            }
         }
-    }, [data, error]);
+    }, [data, error, user, client]);
 
     useEffect(function () {
-        const conversationObservers = [];
-        console.log("test1");
-        Object.keys(conversations).forEach(conversationId => {
-            const conversationObserver = client.subscribe({
+        const newConversationObserver = client.subscribe({
+            query: SUBSCRIBE_NEW_CONVERSATION,
+            variables: {userId: user.id}
+        }).subscribe(response => {
+            console.log(response);
+            setConversations(conversations => ({...conversations, [response.data.newConversation.id]: response.data.newConversation}));
+
+            client.subscribe({
                 query: SUBSCRIBE_CONVERSATION,
-                variables: {conversationId}
-            }).subscribe(response => {
-                const newMessage = response.data.newMessage;
-                console.log("newMessage", newMessage);
-                if(!conversations[newMessage.conversationId]) {
-                    conversations[newMessage.conversationId] = { messages: [], id: newMessage.conversationId, customer: newMessage.user}
-                }
-                conversations[newMessage.conversationId].messages = [...conversations[newMessage.conversationId].messages, newMessage];
-                setConversations({...conversations});
-            });
-            conversationObservers.push(conversationObserver);
+                variables: {conversationId: response.data.newConversation.id}
+            }).subscribe(res => {
+                const newMessage = res.data.newMessage;
+                setConversations(conversations => {
+                    conversations[newMessage.conversationId].messages = [...conversations[newMessage.conversationId].messages, newMessage];
+                    return {...conversations};
+                })
+            })
+
         })
-
         return function () {
-            console.log("test2");
-            conversationObservers.forEach(observer => observer.unsubscribe());
+            newConversationObserver.unsubscribe();
         }
-
-    }, [client, user]);
+    }, [client, user.id]);
 
     const sortedConversations = Object.values(conversations).filter(conversation => conversation.messages?.length > 0).map(conversation => {
         conversation.messages = conversation.messages.sort(({date}, {date: anotherDate}) => new Date(date) - new Date(anotherDate));
