@@ -18,14 +18,6 @@ export class Conversation extends BaseEntity {
     @ManyToOne(() => User, {nullable: true})
     customer: User;
 
-    @Field(() => String, {nullable: true})
-    @Column({nullable: true})
-    supportId: string;
-
-    @Field(() => User, {nullable: true})
-    @ManyToOne(() => User, {nullable: true})
-    support: User;
-
     @Field(() => [Message], {nullable: true})
     @OneToMany(() => Message, message => message.conversation)
     messages: Message[];

@@ -1,20 +1,8 @@
 import logo from './logo.svg';
 import Chat from './Chat/Chat'
 import './App.css';
-import {gql, useQuery} from "@apollo/client";
-
-const GET_ALL_USERS = gql`
-    query  {
-        getAllUsers{
-            username,
-            id,
-            role
-        }
-    }
-`
 
 function App() {
-    const {loading, error, data} = useQuery(GET_ALL_USERS);
 
     return (
         <div className="App">

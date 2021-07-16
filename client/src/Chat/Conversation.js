@@ -3,20 +3,8 @@ import {IconButton, Input} from "@material-ui/core";
 import SendIcon from "@material-ui/icons/Send";
 import {useEffect, useRef, useState} from "react";
 import Message from "./Message";
-import {gql, useMutation} from "@apollo/client";
-
-const SEND_MESSAGE = gql`
-    mutation  sendMessage($sendMessageDto: SendMessageDto!) {
-        sendMessage(sendMessageDto: $sendMessageDto) {
-            id,
-            userId,
-            conversationId,
-            content,
-            date,
-            user { username, id }
-        }
-    }
-`
+import {useApolloClient, useMutation, useSubscription} from "@apollo/client";
+import {SEND_MESSAGE, SUBSCRIBE_CONVERSATION} from "../api/queries";
 
 const Container = styled.div`
 
@@ -49,7 +37,22 @@ const Container = styled.div`
 function Conversation({conversation, user}) {
     const [value, setValue] = useState('');
     const [messages, setMessages] = useState(conversation.messages || []);
-    const [sendMessage, {data, error}] = useMutation(SEND_MESSAGE);
+    const [sendMessage] = useMutation(SEND_MESSAGE);
+    const client = useApolloClient();
+
+    useEffect(function () {
+        const conversationObserver = client.subscribe({
+            query: SUBSCRIBE_CONVERSATION,
+            variables: {conversationId: conversation.id}
+        }).subscribe(response => {
+            if (response.data) {
+                setMessages(prev => [...prev, response.data.newMessage]);
+            }
+        });
+        return function () {
+            conversationObserver.unsubscribe();
+        }
+    }, [client]);
 
     const contentRef = useRef();
     const isValid = value.length > 0;
@@ -69,7 +72,6 @@ function Conversation({conversation, user}) {
                     }
                 }
             });
-            setMessages(prev => [...prev, data?.sendMessage]);
             setValue('');
         }
     }

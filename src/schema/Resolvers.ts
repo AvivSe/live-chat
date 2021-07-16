@@ -1,18 +1,16 @@
-import {Arg, Mutation, Query, Resolver} from 'type-graphql';
+import {Arg, Args, Mutation, Query, Resolver, Root, Subscription} from 'type-graphql';
 import {Conversation, Message, Role, User} from "../models";
 import {LoginDto} from "../dto/LoginDto";
 import {CreateConversationDto} from "../dto/CreateConversationDto";
 import {ForbiddenError, UserInputError} from "apollo-server-express";
 import {SendMessageDto} from "../dto/SendMessageDto";
+import {PubSub} from "apollo-server";
+import {withFilter} from 'graphql-subscriptions';
+
+const pubSub = new PubSub();
 
 @Resolver()
 export class Resolvers {
-
-    @Query(() => [User])
-    async getAllUsers(): Promise<User[]> {
-        return await User.find();
-
-    }
 
     @Query(() => [Conversation])
     async getAllConversationsByUserId(@Arg("id") id: string): Promise<Conversation[]> {
@@ -21,11 +19,11 @@ export class Resolvers {
         if (user.role === Role.Customer) {
             conversations = await Conversation.find({
                 where: {customerId: id},
-                relations: ['support', 'customer', 'messages', 'messages.user']
+                relations: ['customer', 'messages', 'messages.user']
             });
         } else {
             conversations = await Conversation.find({
-                relations: ['support', 'customer', 'messages', 'messages.user']
+                relations: ['customer', 'messages', 'messages.user']
             });
         }
 
@@ -35,16 +33,16 @@ export class Resolvers {
 
     @Mutation(() => User)
     async login(@Arg("loginDto", {validate: true}) loginDto: LoginDto): Promise<User> {
-        try {
-            let user = await User.findOne({where: [{username: loginDto.username}]})
-            if (!user) {
-                user = await User.create(loginDto);
-                await user.save();
+        let user = await User.findOne({where: [{username: loginDto.username}]});
+        if (!user) {
+            user = await User.create(loginDto);
+            await user.save();
+        } else {
+            if (user.role === Role.Customer && loginDto.role === Role.Support) {
+                throw new UserInputError("Customers cannot access admin mode")
             }
-            return user;
-        } catch (error) {
-            throw new UserInputError("Something went wrong")
         }
+        return user
     }
 
     @Mutation(() => Conversation)
@@ -56,13 +54,32 @@ export class Resolvers {
         const conversation = Conversation.create({customerId: user.id, messages: []});
         await conversation.save();
 
-        return conversation;
+        return await Conversation.findOneOrFail(conversation.id, {relations: ['customer', 'messages', 'messages.user']});
     }
 
     @Mutation(() => Message)
     async sendMessage(@Arg("sendMessageDto", {validate: true}) sendMessageDto: SendMessageDto): Promise<Message> {
-        const message = Message.create(sendMessageDto)
+        const message = Message.create(sendMessageDto);
         await message.save();
+        const populatedMessage = await Message.findOneOrFail(message.id, {relations: ['user']})
+
+        await pubSub.publish(`NEW_MESSAGE`, populatedMessage);
+
+        return populatedMessage;
+    }
+
+    @Subscription({
+        subscribe: withFilter(() => pubSub.asyncIterator([`NEW_MESSAGE`]),
+            (payload: Message, variables) => {
+                console.log(payload);
+                console.log(variables);
+                return payload.conversationId === variables.conversationId;
+            }),
+        nullable: true,
+    })
+    newMessage(@Root() message: Message, @Arg("conversationId") conversationId: string): Message {
         return message;
     }
+
+
 }

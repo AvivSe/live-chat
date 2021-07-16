@@ -1,5 +1,5 @@
 import styled from 'styled-components';
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import Button from '@material-ui/core/Button';
 import CreateIcon from '@material-ui/icons/Create';
 import ChatBubbleOutline from '@material-ui/icons/ChatBubbleOutline';
@@ -10,7 +10,8 @@ import {Grow, IconButton} from "@material-ui/core";
 import Login from "./Login";
 import Conversations from "./Conversations";
 import ArrowBackIcon from '@material-ui/icons/NavigateBefore';
-import {gql, useMutation} from "@apollo/client";
+import {useApolloClient, useMutation} from "@apollo/client";
+import {CREATE_CONVERSATION, SUBSCRIBE_CONVERSATION} from "../api/queries";
 
 const Container = styled.div`
   position: absolute;
@@ -60,21 +61,11 @@ const Screens = {
     CONVERSATION: "CONVERSATION",
 }
 
-const CREATE_CONVERSATION = gql`
-    mutation  createConversation($createConversationDto: CreateConversationDto!) {
-        createConversation(createConversationDto: $createConversationDto) {
-            id,
-            supportId,
-            messages { id, date, content }
-        }
-    }
-`
-
 function Chat() {
     const [open, setOpen] = useState(false);
     const [screen, setScreen] = useState(Screens.MAIN);
     const [user, setUser] = useState(undefined);
-    const [_createConversation, {data, error}] = useMutation(CREATE_CONVERSATION);
+    const [_createConversation] = useMutation(CREATE_CONVERSATION);
     const [selectedConversation, setSelectedConversation] = useState(undefined);
 
     const location = useLocation();
@@ -109,7 +100,7 @@ function Chat() {
                                 style={{color: 'white'}}/></IconButton>}
                             <h3>Hello {user.username}</h3>
                         </div>
-                        {!adminMode &&
+                        {!adminMode && screen !== Screens.CONVERSATION &&
                         <IconButton onClick={createConversation}><CreateIcon style={{color: 'white'}}/></IconButton>}
                     </> : <h3> Let's start </h3>}
                 </header>
