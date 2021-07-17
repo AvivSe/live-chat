@@ -25,7 +25,7 @@ const USER_LOGIN = gql`
 
 function Login({adminMode, setUser}) {
     const [value, setValue] = useState('');
-    const [userLogin, {data, error, errors}] = useMutation(USER_LOGIN);
+    const [userLogin, {data, error}] = useMutation(USER_LOGIN);
 
     useEffect(function () {
         if (data && !error) {
@@ -39,7 +39,7 @@ function Login({adminMode, setUser}) {
 
     async function handleSubmit() {
         try {
-            const user = await userLogin({
+            await userLogin({
                 variables: {
                     loginDto: {
                         username: value,
@@ -71,7 +71,7 @@ function Login({adminMode, setUser}) {
             Sign In
         </Button>
     </Container>
-        {error && <div style={{ fontWeight: "bold", color: "red"}}>{error.message}</div>}
+        {error && <div style={{fontWeight: "bold", color: "red"}}>{error.message}</div>}
     </>
 }
 

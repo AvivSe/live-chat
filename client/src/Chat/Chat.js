@@ -1,5 +1,5 @@
 import styled from 'styled-components';
-import {useEffect, useState} from "react";
+import {useState} from "react";
 import Button from '@material-ui/core/Button';
 import CreateIcon from '@material-ui/icons/Create';
 import ChatBubbleOutline from '@material-ui/icons/ChatBubbleOutline';
@@ -10,8 +10,8 @@ import {Grow, IconButton} from "@material-ui/core";
 import Login from "./Login";
 import Conversations from "./Conversations";
 import ArrowBackIcon from '@material-ui/icons/NavigateBefore';
-import {useApolloClient, useMutation} from "@apollo/client";
-import {CREATE_CONVERSATION, SUBSCRIBE_CONVERSATION} from "../api/queries";
+import {useMutation} from "@apollo/client";
+import {CREATE_CONVERSATION} from "../api/queries";
 
 const Container = styled.div`
   position: absolute;

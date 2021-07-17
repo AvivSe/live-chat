@@ -1,75 +1,44 @@
-import {Arg, Args, Mutation, Query, Resolver, Root, Subscription} from 'type-graphql';
+import {Arg, Mutation, Query, Resolver, Root, Subscription} from 'type-graphql';
 import {Conversation, Message, Role, User} from "../models";
 import {LoginDto} from "../dto/LoginDto";
 import {CreateConversationDto} from "../dto/CreateConversationDto";
-import {ForbiddenError, UserInputError} from "apollo-server-express";
 import {SendMessageDto} from "../dto/SendMessageDto";
-import {PubSub} from "apollo-server";
 import {withFilter} from 'graphql-subscriptions';
+import ChatService from "../services/ChatService";
+import {PubSub} from "apollo-server";
 
 const pubSub = new PubSub();
 
 @Resolver()
 export class Resolvers {
+    private chatService: ChatService;
+
+    constructor() {
+        this.chatService = new ChatService();
+    }
 
     @Query(() => [Conversation])
-    async getAllConversationsByUserId(@Arg("id") id: string): Promise<Conversation[]> {
-        const user = await User.findOneOrFail(id);
-        let conversations;
-        if (user.role === Role.Customer) {
-            conversations = await Conversation.find({
-                where: {customerId: id},
-                relations: ['customer', 'messages', 'messages.user']
-            });
-        } else {
-            conversations = await Conversation.find({
-                relations: ['customer', 'messages', 'messages.user']
-            });
-        }
-
-        return conversations;
-
+    getAllConversationsByUserId(@Arg("id") id: string): Promise<Conversation[]> {
+        return this.chatService.getAllConversationsByUserId(id);
     }
 
     @Mutation(() => User)
-    async login(@Arg("loginDto", {validate: true}) loginDto: LoginDto): Promise<User> {
-        let user = await User.findOne({where: [{username: loginDto.username}]});
-        if (!user) {
-            user = await User.create(loginDto);
-            await user.save();
-        } else {
-            if (user.role === Role.Customer && loginDto.role === Role.Support) {
-                throw new UserInputError("Customers cannot access admin mode")
-            }
-        }
-        return user
+    login(@Arg("loginDto", {validate: true}) loginDto: LoginDto): Promise<User> {
+        return this.chatService.login(loginDto);
     }
 
     @Mutation(() => Conversation)
     async createConversation(@Arg("createConversationDto", {validate: true}) createConversationDto: CreateConversationDto): Promise<Conversation> {
-        const user = await User.findOneOrFail(createConversationDto.userId);
-        if (user.role === Role.Support) {
-            throw new ForbiddenError("An admin can not create conversation")
-        }
-        const conversation = Conversation.create({customerId: user.id, messages: []});
-        await conversation.save();
-
-        const populatedConversation = await Conversation.findOneOrFail(conversation.id, {relations: ['customer', 'messages', 'messages.user']});
-
-        await pubSub.publish(`NEW_CONVERSATION`, populatedConversation);
-
-        return populatedConversation;
+        const conversation = await this.chatService.createConversation(createConversationDto);
+        await pubSub.publish(`NEW_CONVERSATION`, conversation);
+        return conversation;
     }
 
     @Mutation(() => Message)
     async sendMessage(@Arg("sendMessageDto", {validate: true}) sendMessageDto: SendMessageDto): Promise<Message> {
-        const message = Message.create(sendMessageDto);
-        await message.save();
-        const populatedMessage = await Message.findOneOrFail(message.id, {relations: ['user']})
-
-        await pubSub.publish(`NEW_MESSAGE`, populatedMessage);
-
-        return populatedMessage;
+        const message = await this.chatService.sendMessage(sendMessageDto);
+        await pubSub.publish(`NEW_MESSAGE`, message);
+        return this.chatService.sendMessage(sendMessageDto);
     }
 
     @Subscription({
@@ -86,7 +55,6 @@ export class Resolvers {
     @Subscription({
         subscribe: withFilter(() => pubSub.asyncIterator([`NEW_CONVERSATION`]),
             async (payload: Conversation, variables) => {
-                // TODO: ONLY ADMIN
                 return (await User.findOneOrFail(variables.userId)).role === Role.Support;
             }),
         nullable: true,

@@ -6,21 +6,31 @@ import {GET_ALL_CONVERSATIONS_BY_USER_ID, SUBSCRIBE_CONVERSATION, SUBSCRIBE_NEW_
 const Container = styled.div`
   height: 480px;
   overflow-y: scroll;
+  
 `
 const ConversationDetails = styled.div`
   margin-bottom: 10px;
   border-bottom: 1px solid lightpink;
   padding: 10px 0;
   cursor: pointer;
+
 `
 
 function Conversations({user, onSelectConversation}) {
-    const {loading, error, data} = useQuery(GET_ALL_CONVERSATIONS_BY_USER_ID, {
+    const {error, data} = useQuery(GET_ALL_CONVERSATIONS_BY_USER_ID, {
         variables: {id: user.id},
         fetchPolicy: "no-cache"
     });
     const [conversations, setConversations] = useState({});
     const client = useApolloClient();
+
+    function onNewMessage(response) {
+        const newMessage = response.data.newMessage;
+        setConversations(conversations => {
+            conversations[newMessage.conversationId].messages = [...conversations[newMessage.conversationId].messages, newMessage];
+            return {...conversations};
+        });
+    }
 
     useEffect(function () {
         if (!error && data) {
@@ -37,11 +47,7 @@ function Conversations({user, onSelectConversation}) {
                 const conversationObserver = client.subscribe({
                     query: SUBSCRIBE_CONVERSATION,
                     variables: {conversationId}
-                }).subscribe(response => {
-                    const newMessage = response.data.newMessage;
-                    conversations[newMessage.conversationId].messages = [...conversations[newMessage.conversationId].messages, newMessage];
-                    setConversations({...conversations});
-                });
+                }).subscribe(onNewMessage);
                 conversationObservers.push(conversationObserver);
             })
 
@@ -57,18 +63,15 @@ function Conversations({user, onSelectConversation}) {
             variables: {userId: user.id}
         }).subscribe(response => {
             console.log(response);
-            setConversations(conversations => ({...conversations, [response.data.newConversation.id]: response.data.newConversation}));
+            setConversations(conversations => ({
+                ...conversations,
+                [response.data.newConversation.id]: response.data.newConversation
+            }));
 
             client.subscribe({
                 query: SUBSCRIBE_CONVERSATION,
                 variables: {conversationId: response.data.newConversation.id}
-            }).subscribe(res => {
-                const newMessage = res.data.newMessage;
-                setConversations(conversations => {
-                    conversations[newMessage.conversationId].messages = [...conversations[newMessage.conversationId].messages, newMessage];
-                    return {...conversations};
-                })
-            })
+            }).subscribe(onNewMessage);
 
         })
         return function () {
@@ -86,7 +89,7 @@ function Conversations({user, onSelectConversation}) {
     });
 
     return <Container>
-        {Object.values(sortedConversations).map(function (conversation) {
+        {Object.values(sortedConversations).map(function (conversation, i) {
             conversation.messages = conversation.messages?.sort(({date}, {date: anotherDate}) => new Date(date) - new Date(anotherDate));
             const lastMessage = conversation.messages[conversation.messages.length - 1];
             return <ConversationDetails key={conversation.id} onClick={() => onSelectConversation(conversation)}>
